@@ -5,11 +5,17 @@ Extractor de archivos CSV/XLSX que cumple el contrato BaseExtractor.extract(deta
 - Normaliza nombres de columnas.
 - Devuelve list[dict] para que main.py use db_loader.load_to_stage(...).
 """
+
 from __future__ import annotations
-import os, glob, re
-from typing import List, Dict
+
+import glob
+import os
+import re
+
 import pandas as pd
+
 from .base_extractor import BaseExtractor
+
 
 def _normalize_col(name: str) -> str:
     x = str(name).strip().lower()
@@ -17,8 +23,9 @@ def _normalize_col(name: str) -> str:
     x = re.sub(r"_+", "_", x).strip("_")
     return x or "col"
 
+
 class FileExtractor(BaseExtractor):
-    def extract(self, details: dict) -> List[Dict]:
+    def extract(self, details: dict) -> list[dict]:
         """
         Lee CSV/XLSX definidos en 'details' y retorna list[dict].
 
@@ -31,7 +38,7 @@ class FileExtractor(BaseExtractor):
           - XLSX: xlsx_sheet
         """
         base_dir = os.path.abspath(details.get("base_dir", "data"))
-        pattern  = os.path.join(base_dir, details.get("path", "*"))
+        pattern = os.path.join(base_dir, details.get("path", "*"))
         files = sorted(glob.glob(pattern))
         if not files:
             return []
@@ -47,7 +54,7 @@ class FileExtractor(BaseExtractor):
                     sep=details.get("delimiter", ","),
                     encoding=details.get("encoding", "utf-8"),
                     header=header,
-                    dtype=str,           # mínimo: todo texto para evitar sorpresas
+                    dtype=str,  # mínimo: todo texto para evitar sorpresas
                 )
             elif ftype == "xlsx":
                 df = pd.read_excel(

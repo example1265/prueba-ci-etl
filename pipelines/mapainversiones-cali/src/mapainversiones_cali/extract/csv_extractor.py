@@ -8,12 +8,12 @@ BaseExtractor.extract(details) -> list[dict]
 - Normaliza nombres de columnas (snake_case simple).
 - Devuelve list[dict] (compatible con db_loader.load_to_stage).
 """
+
 from __future__ import annotations
 
-import os
 import glob
+import os
 import re
-from typing import List, Dict
 
 import pandas as pd
 
@@ -31,7 +31,7 @@ def _normalize_col(name: str) -> str:
 class CsvExtractor(BaseExtractor):
     """Extractor mínimo para CSV."""
 
-    def extract(self, details: dict) -> List[Dict]:
+    def extract(self, details: dict) -> list[dict]:
         """
         Args:
             details: {
@@ -51,7 +51,7 @@ class CsvExtractor(BaseExtractor):
             return []
 
         header = 0 if details.get("header", True) else None
-        frames: List[pd.DataFrame] = []
+        frames: list[pd.DataFrame] = []
 
         for fpath in files:
             df = pd.read_csv(

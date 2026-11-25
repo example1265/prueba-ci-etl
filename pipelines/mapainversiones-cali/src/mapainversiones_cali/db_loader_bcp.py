@@ -1,8 +1,8 @@
 import re
-from typing import Optional, Tuple, List
 
 import pandas as pd
 from sqlalchemy import create_engine
+
 
 class DBLoader:
     """
@@ -42,7 +42,9 @@ class DBLoader:
             print(f"   -> No hay datos para cargar en la tabla '{table_name}'.")
             return
 
-        print(f"   -> Preparando {len(data)} registros para cargar en '{table_name}'...")
+        print(
+            f"   -> Preparando {len(data)} registros para cargar en '{table_name}'..."
+        )
 
         # Aplanar/crear DataFrame
         df = pd.json_normalize(data)
@@ -60,7 +62,7 @@ class DBLoader:
     # ------------------------------------------------------------
     # drop + create con todas las columnas NVARCHAR(MAX)
     # ------------------------------------------------------------
-    def drop_and_create_table(self, table_name: str, columns: List[str]) -> None:
+    def drop_and_create_table(self, table_name: str, columns: list[str]) -> None:
         """Recrea tabla de stage con NVARCHAR(MAX) por columna."""
         schema, name = self._parse_table_name(table_name)
         fq = f"[{schema}].[{name}]" if schema else f"[{name}]"
@@ -85,7 +87,8 @@ class DBLoader:
     # ------------------------------------------------------------
     def _bcp_append_dataframe(self, table_name: str, df: pd.DataFrame) -> None:
         """Inserta un DataFrame con bcpandas."""
-        from bcpandas import to_sql as bcp_to_sql, SqlCreds
+        from bcpandas import SqlCreds
+        from bcpandas import to_sql as bcp_to_sql
 
         schema, name = self._parse_table_name(table_name)
 
@@ -94,12 +97,12 @@ class DBLoader:
 
         # Delimitador y Quote improbable para evitar el error de “todos los delimitadores presentes”
         SAFE_DELIMITER = "\x1f"  # ASCII 31 (Unit Separator)
-        SAFE_QUOTE     = "\x1e"  # ASCII 30 (Record Separator)
+        SAFE_QUOTE = "\x1e"  # ASCII 30 (Record Separator)
 
         bcp_to_sql(
             df,
-            name,           
-            creds,          
+            name,
+            creds,
             schema=schema,
             if_exists="append",
             index=False,
@@ -109,13 +112,11 @@ class DBLoader:
         )
         print(f"   -> Insertadas {len(df)} filas en '{table_name}'.")
 
-
-
     # ------------------------------------------------------------
     # Utilidades
     # ------------------------------------------------------------
     @staticmethod
-    def _parse_table_name(table_name: str) -> Tuple[Optional[str], str]:
+    def _parse_table_name(table_name: str) -> tuple[str | None, str]:
         """Devuelve (schema, name). Acepta 'schema.table' o 'table'. Quita corchetes si vienen."""
         t = table_name.strip()
         # quitar [dbo].[tabla] -> dbo.tabla

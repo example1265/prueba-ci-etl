@@ -5,6 +5,7 @@ Extractor para archivos XLSX almacenados en Amazon S3. El ETL no lee archivos
 locales: siempre descarga el archivo desde S3 antes de parsearlo.
 
 """
+
 from __future__ import annotations
 
 import atexit
@@ -15,7 +16,6 @@ import shutil
 import tempfile
 import unicodedata
 from pathlib import PurePosixPath
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -27,8 +27,8 @@ _LOTE_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _NOT_FOUND_CODES = {"404", "NoSuchKey", "NotFound"}
 
 # Cache de la ejecucion: (bucket, key, etag) -> ruta local.
-_DOWNLOADS: Dict[Tuple[str, str, str], str] = {}
-_TMP_DIR: Optional[str] = None
+_DOWNLOADS: dict[tuple[str, str, str], str] = {}
+_TMP_DIR: str | None = None
 
 
 def cleanup_downloads() -> None:
@@ -50,7 +50,7 @@ def _tmp_dir() -> str:
     return _TMP_DIR
 
 
-def resolve_location(details: dict) -> Tuple[str, str]:
+def resolve_location(details: dict) -> tuple[str, str]:
     """Devuelve (bucket, key) validando bucket, lote y nombre de archivo."""
     bucket = details.get("bucket") or os.getenv("S3_BUCKET")
     if not bucket:
@@ -58,7 +58,9 @@ def resolve_location(details: dict) -> Tuple[str, str]:
 
     lote = str(details.get("lote") or "").strip()
     if not lote:
-        raise ValueError("Falta el periodo/lote (subcarpeta de S3): defina la variable PERIODO.")
+        raise ValueError(
+            "Falta el periodo/lote (subcarpeta de S3): defina la variable PERIODO."
+        )
     if not _LOTE_RE.match(lote):
         raise ValueError(f"Lote invalido '{lote}': solo letras, numeros, '-' y '_'.")
 
@@ -66,7 +68,9 @@ def resolve_location(details: dict) -> Tuple[str, str]:
     if not filename:
         raise ValueError("Falta details.path con el nombre del archivo XLSX.")
     if "/" in filename or "\\" in filename or filename in {".", ".."}:
-        raise ValueError(f"details.path debe ser un nombre de archivo sin carpetas: '{filename}'.")
+        raise ValueError(
+            f"details.path debe ser un nombre de archivo sin carpetas: '{filename}'."
+        )
     if not filename.lower().endswith(".xlsx"):
         raise ValueError(f"Solo se admiten archivos .xlsx en S3: '{filename}'.")
 
@@ -93,7 +97,9 @@ def detect_header_row(fpath: str, sheet=0, max_check: int = 5) -> int:
     Estrategia: lee primeras `max_check` filas sin header y elige
     la fila con mayor numero de valores no nulos.
     """
-    preview = pd.read_excel(fpath, sheet_name=sheet, header=None, nrows=max_check, dtype=str)
+    preview = pd.read_excel(
+        fpath, sheet_name=sheet, header=None, nrows=max_check, dtype=str
+    )
     non_null_counts = preview.notna().sum(axis=1)
     best_row = non_null_counts.idxmax()
     return best_row
@@ -122,14 +128,18 @@ class XlsxExtractor(BaseExtractor):
             code = str(error.response.get("Error", {}).get("Code", ""))
             if code in _NOT_FOUND_CODES:
                 raise FileNotFoundError(f"No existe s3://{bucket}/{key}") from error
-            raise RuntimeError(f"No se pudo consultar s3://{bucket}/{key} ({code}): {error}") from error
+            raise RuntimeError(
+                f"No se pudo consultar s3://{bucket}/{key} ({code}): {error}"
+            ) from error
 
         cache_key = (bucket, key, head.get("ETag", ""))
         cached = _DOWNLOADS.get(cache_key)
         if cached and os.path.isfile(cached):
             return cached
 
-        local = os.path.join(_tmp_dir(), hashlib.sha1("|".join(cache_key).encode()).hexdigest() + ".xlsx")
+        local = os.path.join(
+            _tmp_dir(), hashlib.sha1("|".join(cache_key).encode()).hexdigest() + ".xlsx"
+        )
         # Se verifica la version exacta inspeccionada con head_object.
         extra = {"IfMatch": head["ETag"]} if head.get("ETag") else {}
         with open(local, "wb") as handle:
@@ -148,7 +158,9 @@ class XlsxExtractor(BaseExtractor):
         finally:
             workbook.close()
         if sheet not in names:
-            raise ValueError(f"{label}: no existe la hoja '{sheet}'. Hojas disponibles: {names}")
+            raise ValueError(
+                f"{label}: no existe la hoja '{sheet}'. Hojas disponibles: {names}"
+            )
 
     def validate(self, details: dict) -> None:
         """Comprueba existencia del objeto y de la hoja. No toca la base de datos."""
@@ -156,7 +168,7 @@ class XlsxExtractor(BaseExtractor):
         local = self._download(bucket, key)
         self._check_sheet(local, details.get("xlsx_sheet"), f"s3://{bucket}/{key}")
 
-    def extract(self, details: dict) -> List[Dict]:
+    def extract(self, details: dict) -> list[dict]:
         bucket, key = resolve_location(details)
         label = f"s3://{bucket}/{key}"
         local = self._download(bucket, key)

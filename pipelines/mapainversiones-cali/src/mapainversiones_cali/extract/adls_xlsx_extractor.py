@@ -1,12 +1,16 @@
 from __future__ import annotations
-import os, re, unicodedata, tempfile
-from io import BytesIO
-from typing import List, Dict
-from openpyxl import load_workbook
+
+import os
+import re
+import tempfile
+import unicodedata
+
 import pandas as pd
 from azure.identity import AzureCliCredential
 from azure.storage.blob import BlobServiceClient
+
 from .base_extractor import BaseExtractor
+
 
 def _normalize_col(name: str) -> str:
     """Normaliza nombres de columna a snake_case simple, sin perder vocales acentuadas."""
@@ -15,29 +19,35 @@ def _normalize_col(name: str) -> str:
     x = "".join(ch for ch in x if unicodedata.category(ch) != "Mn")
     x = re.sub(r"[^a-z0-9_]+", "_", x)
     x = re.sub(r"_+", "_", x).strip("_")
-    return x or "col"   
+    return x or "col"
+
 
 class AdlsXlsxExtractor(BaseExtractor):
-    def extract(self, details: dict) -> List[Dict]:
+    def extract(self, details: dict) -> list[dict]:
         account_url = details["account_url"]
-        container   = details["container"]
-        filename    = details.get("filename")
-        prefix      = details.get("prefix", "")
-        sheet       = details.get("sheet_name")
-        header      = 0 if details.get("header", True) else None
+        container = details["container"]
+        filename = details.get("filename")
+        prefix = details.get("prefix", "")
+        sheet = details.get("sheet_name")
+        header = 0 if details.get("header", True) else None
 
         cred = AzureCliCredential()  # local
         bsc = BlobServiceClient(account_url=account_url, credential=cred)
-        cc  = bsc.get_container_client(container)
+        cc = bsc.get_container_client(container)
 
-        blobs = [filename] if filename else [
-            b.name for b in cc.list_blobs(name_starts_with=prefix)
-            if b.name.lower().endswith((".xlsx", ".xls"))
-        ]
+        blobs = (
+            [filename]
+            if filename
+            else [
+                b.name
+                for b in cc.list_blobs(name_starts_with=prefix)
+                if b.name.lower().endswith((".xlsx", ".xls"))
+            ]
+        )
         if not blobs:
             return []
 
-        frames: List[pd.DataFrame] = []
+        frames: list[pd.DataFrame] = []
         for blob_name in blobs:
             suffix = ".xlsx" if blob_name.lower().endswith(".xlsx") else ".xls"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:

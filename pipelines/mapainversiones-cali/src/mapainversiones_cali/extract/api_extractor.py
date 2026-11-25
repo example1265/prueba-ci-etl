@@ -10,7 +10,9 @@ Responsabilidades:
 
 import os
 import re
+
 import requests
+
 from .base_extractor import BaseExtractor
 
 
@@ -33,16 +35,20 @@ def _get_api_token(auth_details: dict) -> str:
     el usuario/contraseña que toma de variables de entorno.
     (Mismo comportamiento que existía en main.py)
     """
-    login_url = auth_details.get('login_url')
+    login_url = auth_details.get("login_url")
     login_url = _expand_env_placeholders(login_url)
 
-    user = os.getenv('API_JAM_USER')
-    password = os.getenv('API_JAM_PASSWORD')
+    user = os.getenv("API_JAM_USER")
+    password = os.getenv("API_JAM_PASSWORD")
 
     if not all([login_url, user, password]):
-        raise ValueError("Faltan detalles de autenticación (login_url, API_JAM_USER, API_JAM_PASSWORD).")
+        raise ValueError(
+            "Faltan detalles de autenticación (login_url, API_JAM_USER, API_JAM_PASSWORD)."
+        )
 
-    print(f"   -> Solicitando token de acceso para el usuario '{user}' desde: {login_url}")
+    print(
+        f"   -> Solicitando token de acceso para el usuario '{user}' desde: {login_url}"
+    )
 
     payload = {"username": user, "password": password}
     response = requests.post(login_url, json=payload)
@@ -56,9 +62,11 @@ def _get_api_token(auth_details: dict) -> str:
         token_obj = data
 
     if not isinstance(token_obj, dict):
-        raise ValueError("La respuesta del login no es un diccionario válido o está vacía.")
+        raise TypeError(
+            "La respuesta del login no es un diccionario válido o está vacía."
+        )
 
-    access_token = token_obj.get('access_token')
+    access_token = token_obj.get("access_token")
     if not access_token:
         raise ValueError("La respuesta del login no contenía 'access_token'.")
 
@@ -69,31 +77,31 @@ def _get_api_token(auth_details: dict) -> str:
 class ApiExtractor(BaseExtractor):
     """Extractor HTTP: llama un endpoint y retorna registros (lista de dicts)."""
 
-    def extract(self, source_details: dict, access_token: str = None) -> list:
+    def extract(self, source_details: dict, access_token: str | None = None) -> list:
         """
         Extrae datos desde la API. Si no se provee 'access_token' y existe 'auth',
         resuelve internamente la autenticación (mismo contrato que antes).
         """
-        auth = source_details.get('auth')
+        auth = source_details.get("auth")
         if access_token is None and auth:
             access_token = _get_api_token(auth)
 
-        url = source_details.get('url')
+        url = source_details.get("url")
         if not url:
             raise ValueError("Falta 'url' en source_details.")
 
-        headers = (source_details.get('headers') or {}).copy()
+        headers = (source_details.get("headers") or {}).copy()
         if access_token:
-            headers.setdefault('Authorization', f'Bearer {access_token}')
+            headers.setdefault("Authorization", f"Bearer {access_token}")
 
         # Otros parámetros (query/body) si existieran en config
-        params = source_details.get('params') or None
-        body = source_details.get('body') or None
-        method = (source_details.get('method') or 'GET').upper()
+        params = source_details.get("params") or None
+        body = source_details.get("body") or None
+        method = (source_details.get("method") or "GET").upper()
 
-        if method == 'GET':
+        if method == "GET":
             resp = requests.get(url, headers=headers, params=params)
-        elif method == 'POST':
+        elif method == "POST":
             resp = requests.post(url, headers=headers, params=params, json=body)
         else:
             raise ValueError(f"Método HTTP no soportado: {method}")
@@ -105,7 +113,9 @@ class ApiExtractor(BaseExtractor):
         if isinstance(payload, list):
             return payload
         if isinstance(payload, dict):
-            if 'data' in payload and isinstance(payload['data'], list):
-                return payload['data']
-            raise ValueError("La respuesta no es una lista ni contiene 'data' como lista.")
+            if "data" in payload and isinstance(payload["data"], list):
+                return payload["data"]
+            raise ValueError(
+                "La respuesta no es una lista ni contiene 'data' como lista."
+            )
         raise ValueError("Respuesta inesperada de la API.")

@@ -1,6 +1,6 @@
 import pandas as pd
-from sqlalchemy import create_engine, engine
-from typing import Optional, Tuple, List
+from sqlalchemy import create_engine
+
 
 class DBLoader:
     """
@@ -33,7 +33,9 @@ class DBLoader:
             print(f"   -> No hay datos para cargar en la tabla '{table_name}'.")
             return
 
-        print(f"   -> Preparando {len(data)} registros para cargar en '{table_name}'...")
+        print(
+            f"   -> Preparando {len(data)} registros para cargar en '{table_name}'..."
+        )
         # Usamos json_normalize para aplanar la estructura de los datos JSON anidados.
         df = pd.json_normalize(data)
 
@@ -42,13 +44,13 @@ class DBLoader:
         df.to_sql(
             name=table_name,
             con=self.engine,
-            if_exists='replace',
+            if_exists="replace",
             index=False,
-            chunksize=1000  # Opcional: para cargar en lotes
+            chunksize=1000,  # Opcional: para cargar en lotes
         )
         print(f"   -> ¡Carga completada en '{table_name}'!")
 
-    def drop_and_create_table(self, table_name: str, columns: List[str]) -> None:
+    def drop_and_create_table(self, table_name: str, columns: list[str]) -> None:
         """Recrea tabla stage con NVARCHAR(MAX) por columna."""
         schema, name = self._parse_table_name(table_name)
         fq = f"[{schema}].[{name}]" if schema else f"[{name}]"
@@ -77,14 +79,18 @@ class DBLoader:
             if df[c].dtype != "object":
                 df[c] = df[c].astype("string").astype(object)
         df.to_sql(
-            name=name, con=self.engine, schema=schema,
-            if_exists="append", index=False,
-            method="multi", chunksize=50_000,
+            name=name,
+            con=self.engine,
+            schema=schema,
+            if_exists="append",
+            index=False,
+            method="multi",
+            chunksize=50_000,
         )
         print(f"   -> Insertadas {len(df)} filas en '{table_name}'.")
 
     @staticmethod
-    def _parse_table_name(table_name: str) -> Tuple[Optional[str], str]:
+    def _parse_table_name(table_name: str) -> tuple[str | None, str]:
         if "." in table_name:
             schema, name = table_name.split(".", 1)
             return schema, name
