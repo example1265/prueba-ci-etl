@@ -1,8 +1,10 @@
+import contextlib
 import re
-from typing import Optional, Tuple, List
 import unicodedata
+
 import pandas as pd
 from sqlalchemy import create_engine, text
+
 
 class DBLoader:
     """
@@ -46,7 +48,9 @@ class DBLoader:
             print(f"   -> No hay datos para cargar en la tabla '{table_name}'.")
             return
 
-        print(f"   -> Preparando {len(data)} registros para cargar en '{table_name}'...")
+        print(
+            f"   -> Preparando {len(data)} registros para cargar en '{table_name}'..."
+        )
 
         # Aplanar/crear DataFrame
         df = pd.json_normalize(data)
@@ -59,7 +63,7 @@ class DBLoader:
         df = df.replace(r"^\s*NULL\s*$", "", regex=True).fillna("")
 
         # Asegurar tipo str para todas las columnas
-        df = df.astype(str)        
+        df = df.astype(str)
 
         # Re-crear tabla como NVARCHAR(MAX)
         self.drop_and_create_table(table_name, list(df.columns))
@@ -71,7 +75,7 @@ class DBLoader:
     # ------------------------------------------------------------
     # DDL: drop + create con todas las columnas NVARCHAR(MAX)
     # ------------------------------------------------------------
-    def drop_and_create_table(self, table_name: str, columns: List[str]) -> None:
+    def drop_and_create_table(self, table_name: str, columns: list[str]) -> None:
         """Recrea tabla de stage con NVARCHAR(MAX) por columna."""
         schema, name = self._parse_table_name(table_name)
         fq = f"[{schema}].[{name}]" if schema else f"[{name}]"
@@ -94,7 +98,9 @@ class DBLoader:
     # ------------------------------------------------------------
     # Carga rápida con pyodbc + fast_executemany
     # ------------------------------------------------------------
-    def _fast_insert_dataframe(self, table_name: str, df: pd.DataFrame, batch_size: int = 50_000) -> None:
+    def _fast_insert_dataframe(
+        self, table_name: str, df: pd.DataFrame, batch_size: int = 50_000
+    ) -> None:
         """Inserta un DataFrame usando pyodbc fast_executemany (SQLAlchemy 2.x) evitando NULL en campos vacíos."""
         schema, name = self._parse_table_name(table_name)
         fq = f"[{schema}].[{name}]" if schema else f"[{name}]"
@@ -103,8 +109,7 @@ class DBLoader:
         insert_sql = f"INSERT INTO {fq} ({cols_br}) VALUES ({placeholders})"
 
         def iter_rows(frame: pd.DataFrame):
-            for row in frame.itertuples(index=False, name=None):
-                yield row
+            yield from frame.itertuples(index=False, name=None)
 
         conn = None
         cursor = None
@@ -128,35 +133,32 @@ class DBLoader:
                 count += len(batch)
 
             conn.commit()
-            print(f"   -> (fast_executemany) Insertadas {count} filas en '{table_name}'.")
+            print(
+                f"   -> (fast_executemany) Insertadas {count} filas en '{table_name}'."
+            )
         except Exception:
             if conn is not None:
-                try:
+                with contextlib.suppress(Exception):
                     conn.rollback()
-                except Exception:
-                    pass
             raise
         finally:
             if cursor is not None:
-                try:
+                with contextlib.suppress(Exception):
                     cursor.close()
-                except Exception:
-                    pass
             if conn is not None:
-                try:
+                with contextlib.suppress(Exception):
                     conn.close()
-                except Exception:
-                    pass
-
 
     # ------------------------------------------------------------
     # Utilidades
     # ------------------------------------------------------------
     @staticmethod
-    def _parse_table_name(table_name: str) -> Tuple[Optional[str], str]:
+    def _parse_table_name(table_name: str) -> tuple[str | None, str]:
         """Devuelve (schema, name). Acepta 'schema.table' o 'table'. Quita corchetes si vienen."""
         t = table_name.strip()
-        t = re.sub(r"^\[([^\]]+)\]\.\[([^\]]+)\]$", r"\1.\2", t)  # [dbo].[tabla] -> dbo.tabla
+        t = re.sub(
+            r"^\[([^\]]+)\]\.\[([^\]]+)\]$", r"\1.\2", t
+        )  # [dbo].[tabla] -> dbo.tabla
         if "." in t:
             schema, name = t.split(".", 1)
             return schema.strip("[]"), name.strip("[]")
@@ -170,7 +172,7 @@ class DBLoader:
         x = "".join(ch for ch in x if unicodedata.category(ch) != "Mn")
         x = re.sub(r"[^a-z0-9_]+", "_", x)
         x = re.sub(r"_+", "_", x).strip("_")
-        return x or "col"    
+        return x or "col"
 
     # ------------------------------------------------------------
     # Consultas de solo lectura

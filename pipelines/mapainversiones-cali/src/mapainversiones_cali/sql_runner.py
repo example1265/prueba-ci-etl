@@ -1,5 +1,6 @@
-from sqlalchemy.engine import Engine
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
+
 
 def execute_sql_from_file(engine: Engine, file_path: str):
     """
@@ -10,9 +11,9 @@ def execute_sql_from_file(engine: Engine, file_path: str):
         file_path (str): La ruta al archivo .sql que se va a ejecutar.
     """
     print(f"   -> Ejecutando script SQL: {file_path}")
-    with open(file_path, 'r', encoding="utf-8-sig") as file:
+    with open(file_path, "r", encoding="utf-8-sig") as file:
         sql_script = file.read()
-    
+
     # Usamos una conexión del pool del motor para ejecutar el script
     with engine.connect() as connection:
         # Iniciamos una transacción explícita
@@ -23,8 +24,8 @@ def execute_sql_from_file(engine: Engine, file_path: str):
             # Si todo va bien, confirmamos la transacción
             trans.commit()
             print(f"   -> Script {file_path} ejecutado con éxito.")
-        except Exception as e:
+        except Exception:
             # Si hay un error, revertimos la transacción
             print(f" ERROR ejecutando {file_path}. Revirtiendo transacción.")
             trans.rollback()
-            raise e
+            raise

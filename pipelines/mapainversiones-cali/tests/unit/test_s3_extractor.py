@@ -45,14 +45,24 @@ def _details(**overrides):
 
 
 def test_extracts_from_lote_and_uses_lote_as_periodo(aws):
-    _put(aws, "202601", "CUIPO.xlsx", {"CUIPO": pd.DataFrame({"Código": ["A1"], "Valor": ["23"]})})
+    _put(
+        aws,
+        "202601",
+        "CUIPO.xlsx",
+        {"CUIPO": pd.DataFrame({"Código": ["A1"], "Valor": ["23"]})},
+    )
     rows = XlsxExtractor().extract(_details())
     assert rows == [{"codigo": "A1", "valor": "23", "periodo": "202601"}]
 
 
 def test_each_lote_is_independent_and_periodo_can_be_overridden(aws):
     _put(aws, "202601", "CUIPO.xlsx", {"CUIPO": pd.DataFrame({"Codigo": ["A1"]})})
-    _put(aws, "202602", "CUIPO.xlsx", {"CUIPO": pd.DataFrame({"Codigo": ["B2"], "Nueva": ["x"]})})
+    _put(
+        aws,
+        "202602",
+        "CUIPO.xlsx",
+        {"CUIPO": pd.DataFrame({"Codigo": ["B2"], "Nueva": ["x"]})},
+    )
     first = XlsxExtractor().extract(_details(lote="202601"))
     second = XlsxExtractor().extract(_details(lote="202602", periodo="202606"))
     assert first == [{"codigo": "A1", "periodo": "202601"}]
@@ -80,10 +90,15 @@ def test_empty_sheet_is_an_error(aws):
 
 
 def test_file_with_spaces_downloaded_once_for_shared_workbook(aws):
-    _put(aws, "202601", "BASE BID.xlsx", {
-        "PROCESOS": pd.DataFrame({"Id": ["1"]}),
-        "CONTRATOS": pd.DataFrame({"Id": ["9"]}),
-    })
+    _put(
+        aws,
+        "202601",
+        "BASE BID.xlsx",
+        {
+            "PROCESOS": pd.DataFrame({"Id": ["1"]}),
+            "CONTRATOS": pd.DataFrame({"Id": ["9"]}),
+        },
+    )
     calls = []
     original = XlsxExtractor._download
 
@@ -94,8 +109,12 @@ def test_file_with_spaces_downloaded_once_for_shared_workbook(aws):
 
     XlsxExtractor._download = spy
     try:
-        procesos = XlsxExtractor().extract(_details(path="BASE BID.xlsx", xlsx_sheet="PROCESOS"))
-        contratos = XlsxExtractor().extract(_details(path="BASE BID.xlsx", xlsx_sheet="CONTRATOS"))
+        procesos = XlsxExtractor().extract(
+            _details(path="BASE BID.xlsx", xlsx_sheet="PROCESOS")
+        )
+        contratos = XlsxExtractor().extract(
+            _details(path="BASE BID.xlsx", xlsx_sheet="CONTRATOS")
+        )
     finally:
         XlsxExtractor._download = original
     assert procesos == [{"id": "1", "periodo": "202601"}]
@@ -127,7 +146,10 @@ def test_resolve_location_requires_bucket(monkeypatch):
 
 def test_resolve_location_builds_key_with_prefix_override(monkeypatch):
     monkeypatch.setenv("S3_RAW_PREFIX", "/entrada/")
-    assert resolve_location(_details(path="BASE BID.xlsx")) == (BUCKET, "entrada/202601/BASE BID.xlsx")
+    assert resolve_location(_details(path="BASE BID.xlsx")) == (
+        BUCKET,
+        "entrada/202601/BASE BID.xlsx",
+    )
 
 
 class FakeLoader:
@@ -154,10 +176,12 @@ def _source(name, path, sheet, table):
 def test_preflight_blocks_all_loads_when_any_file_is_missing(aws):
     _put(aws, "202601", "CUIPO.xlsx", {"CUIPO": pd.DataFrame({"Codigo": ["A1"]})})
     loader = FakeLoader()
-    config = _config([
-        _source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo"),
-        _source("REPORTE RPC", "REPORTE_RPC.xlsx", "REPORTE", "dbo.stg_rpc"),
-    ])
+    config = _config(
+        [
+            _source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo"),
+            _source("REPORTE RPC", "REPORTE_RPC.xlsx", "REPORTE", "dbo.stg_rpc"),
+        ]
+    )
     with pytest.raises(RuntimeError, match=r"REPORTE RPC.*REPORTE_RPC.xlsx"):
         main.run_extract_stage(config, loader)
     assert loader.loaded == []
@@ -166,20 +190,26 @@ def test_preflight_blocks_all_loads_when_any_file_is_missing(aws):
 def test_extract_stage_loads_every_enabled_source(aws):
     _put(aws, "202601", "CUIPO.xlsx", {"CUIPO": pd.DataFrame({"Codigo": ["A1", "A2"]})})
     _put(aws, "202601", "REPORTE_RPC.xlsx", {"REPORTE": pd.DataFrame({"Rpc": ["7"]})})
-    disabled = _source("CATALOGO", "CATALOGO_DE_PRODUCTOS.xlsx", "Catalogo", "dbo.stg_cat")
+    disabled = _source(
+        "CATALOGO", "CATALOGO_DE_PRODUCTOS.xlsx", "Catalogo", "dbo.stg_cat"
+    )
     disabled["enabled"] = False
     loader = FakeLoader()
-    config = _config([
-        _source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo"),
-        disabled,
-        _source("REPORTE RPC", "REPORTE_RPC.xlsx", "REPORTE", "dbo.stg_rpc"),
-    ])
+    config = _config(
+        [
+            _source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo"),
+            disabled,
+            _source("REPORTE RPC", "REPORTE_RPC.xlsx", "REPORTE", "dbo.stg_rpc"),
+        ]
+    )
     main.run_extract_stage(config, loader)
     assert loader.loaded == [("dbo.stg_cuipo", 2), ("dbo.stg_rpc", 1)]
 
 
 def test_extract_stage_fails_without_lote(aws):
-    config = _config([_source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo")], lote=None)
+    config = _config(
+        [_source("CUIPO", "CUIPO.xlsx", "CUIPO", "dbo.stg_cuipo")], lote=None
+    )
     loader = FakeLoader()
     with pytest.raises(RuntimeError, match="Falta el periodo/lote"):
         main.run_extract_stage(config, loader)

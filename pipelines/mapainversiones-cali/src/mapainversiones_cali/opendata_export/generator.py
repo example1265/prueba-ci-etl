@@ -6,6 +6,7 @@ EXPORTERS = {
     "xlsx": XlsxExporter,
 }
 
+
 def generate_opendata(config: dict, db_loader):
     """
     Genera archivos OpenData (CSV/XLSX) a partir de vistas definidas en config.yaml.

@@ -6,6 +6,7 @@ Orquestador del pipeline ELT:
 - LOAD: ejecuta SQL de 'load_models'
 - Soporta ejecucion selectiva por dominios y etapas via parametros CLI y perfiles "runs"
 """
+
 import argparse
 import os
 import subprocess
@@ -75,8 +76,14 @@ def _split_csv_values(values):
 def parse_args():
     """Construye los argumentos de linea de comandos."""
     parser = argparse.ArgumentParser(description="Pipeline ETL MapaInversiones Cali")
-    parser.add_argument("--config", default=str(PIPELINE_ROOT / "config" / "config.yaml"), help="Ruta del archivo YAML principal.")
-    parser.add_argument("--run", help="Nombre del perfil de ejecucion definido en 'runs'.")
+    parser.add_argument(
+        "--config",
+        default=str(PIPELINE_ROOT / "config" / "config.yaml"),
+        help="Ruta del archivo YAML principal.",
+    )
+    parser.add_argument(
+        "--run", help="Nombre del perfil de ejecucion definido en 'runs'."
+    )
     parser.add_argument(
         "--domain",
         action="append",
@@ -89,7 +96,11 @@ def parse_args():
         default=[],
         help="Etapa(s): extract, transform, load, opendata. Repetible o separados por coma.",
     )
-    parser.add_argument("--list-runs", action="store_true", help="Lista perfiles 'runs' disponibles y termina.")
+    parser.add_argument(
+        "--list-runs",
+        action="store_true",
+        help="Lista perfiles 'runs' disponibles y termina.",
+    )
     return parser.parse_args()
 
 
@@ -155,7 +166,9 @@ def _resolve_run_selection(config: dict, args):
         run_cfg = runs.get(args.run)
         if run_cfg is None:
             available = ", ".join(sorted(runs.keys())) or "(sin runs definidos)"
-            raise ValueError(f"Run '{args.run}' no encontrado. Disponibles: {available}")
+            raise ValueError(
+                f"Run '{args.run}' no encontrado. Disponibles: {available}"
+            )
         run_domains = _split_csv_values(_as_list(run_cfg.get("domains")))
         run_stages = _split_csv_values(_as_list(run_cfg.get("stages")))
 
@@ -166,14 +179,18 @@ def _resolve_run_selection(config: dict, args):
     selected_stages = cli_stages or run_stages or list(ALL_STAGES)
 
     # Si no hay elementos en la raiz y si hay dominios, por defecto ejecuta todos.
-    has_top_level_items = any(config.get(stage_key) for stage_key in STAGE_TO_CONFIG_KEY.values())
+    has_top_level_items = any(
+        config.get(stage_key) for stage_key in STAGE_TO_CONFIG_KEY.values()
+    )
     if not selected_domains and not has_top_level_items and config.get("domains"):
         selected_domains = sorted(config["domains"].keys())
 
     return selected_domains, selected_stages
 
 
-def _resolve_domain_items(config: dict, domain_cfg: dict, stage_key: str, domain_name: str):
+def _resolve_domain_items(
+    config: dict, domain_cfg: dict, stage_key: str, domain_name: str
+):
     """
     Resuelve items por dominio:
     - string => nombre referenciado en el bloque principal
@@ -216,7 +233,8 @@ def build_execution_config(config: dict, selected_domains, selected_stages):
     execution = {
         key: deepcopy(value)
         for key, value in config.items()
-        if key not in set(STAGE_TO_CONFIG_KEY.values()) | {"domains", "runs", "includes"}
+        if key
+        not in set(STAGE_TO_CONFIG_KEY.values()) | {"domains", "runs", "includes"}
     }
 
     for stage_key in STAGE_TO_CONFIG_KEY.values():
@@ -272,7 +290,7 @@ def _run_external_python(script_path: str):
         raise FileNotFoundError(f"No se encontro el script: {script_abs}")
 
     print(f"   -> Ejecutando script externo: {script_abs}")
-    result = subprocess.run([sys.executable, script_abs])
+    result = subprocess.run([sys.executable, script_abs], check=False)
     if result.returncode != 0:
         raise RuntimeError(f"Script externo termino con codigo {result.returncode}")
 
@@ -300,11 +318,12 @@ def _preflight_extract_sources(config: dict):
             continue
         try:
             validate(_source_details(source, config))
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             errors.append(f"[{source['name']}] {error}")
     if errors:
         raise RuntimeError(
-            "Validacion previa del lote fallida; no se modifico ninguna tabla:\n  - " + "\n  - ".join(errors)
+            "Validacion previa del lote fallida; no se modifico ninguna tabla:\n  - "
+            + "\n  - ".join(errors)
         )
 
 
@@ -316,7 +335,9 @@ def run_extract_stage(config: dict, db_loader: "DBLoader"):
       - Instancia el extractor en base a 'source_type'
       - Llama extractor.extract(details) y carga a stage con db_loader.load_to_stage(...)
     """
-    print(f"\n--- [ETAPA 1: EXTRACT & LOAD TO STAGE] --- [{datetime.now():%Y-%m-%d %H:%M:%S}] ")
+    print(
+        f"\n--- [ETAPA 1: EXTRACT & LOAD TO STAGE] --- [{datetime.now():%Y-%m-%d %H:%M:%S}] "
+    )
     try:
         _preflight_extract_sources(config)
         _run_extract_sources(config, db_loader)
@@ -346,7 +367,9 @@ def _run_extract_sources(config: dict, db_loader: "DBLoader"):
             data = extractor.extract(details)
             db_loader.load_to_stage(data, target_table)
 
-            print(f"   -> Proceso completado para '{name}'! --- [{datetime.now():%Y-%m-%d %H:%M:%S}]")
+            print(
+                f"   -> Proceso completado para '{name}'! --- [{datetime.now():%Y-%m-%d %H:%M:%S}]"
+            )
         except Exception as error:
             print(f" ERROR procesando la fuente {name}: {error}")
             raise
@@ -369,7 +392,9 @@ def run_valid_stage(config: dict, db_loader: "DBLoader"):
 
         print(f"\nProcesando modelo: {model['name']}...")
         try:
-            execute_sql_from_file(db_loader.engine, str(PIPELINE_ROOT / model["script_path"]))
+            execute_sql_from_file(
+                db_loader.engine, str(PIPELINE_ROOT / model["script_path"])
+            )
         except Exception as error:
             print(f" ERROR procesando el modelo {model['name']}: {error}")
             raise
@@ -392,7 +417,9 @@ def run_load_model(config: dict, db_loader: "DBLoader"):
 
         print(f"\nProcesando modelo: {model['name']}...")
         try:
-            execute_sql_from_file(db_loader.engine, str(PIPELINE_ROOT / model["script_path"]))
+            execute_sql_from_file(
+                db_loader.engine, str(PIPELINE_ROOT / model["script_path"])
+            )
         except Exception as error:
             print(f" ERROR procesando el modelo {model['name']}: {error}")
             raise
@@ -409,8 +436,10 @@ def run_pipeline(args):
             return
 
         selected_domains, selected_stages = _resolve_run_selection(config, args)
-        config_to_run = build_execution_config(config, selected_domains, selected_stages)
-        config_to_run["lote"] = os.getenv("PERIODO") 
+        config_to_run = build_execution_config(
+            config, selected_domains, selected_stages
+        )
+        config_to_run["lote"] = os.getenv("PERIODO")
 
         print(
             " Seleccion aplicada -> "
@@ -448,7 +477,7 @@ def run_pipeline(args):
 
         print("\n Pipeline completado exitosamente!")
 
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         print(f"\n El pipeline ha fallado. Deteniendo ejecucion. Detalle: {error}")
         sys.exit(1)
 
